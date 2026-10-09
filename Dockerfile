@@ -36,4 +36,6 @@ EXPOSE 3002
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3002/health', timeout=4)"
 
-CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "3002", "--proxy-headers"]
+# Empty host = every interface, IPv4 AND IPv6 ("::" would be IPv6-only, "0.0.0.0"
+# IPv4-only). Railway's private network (*.railway.internal) needs IPv6.
+CMD ["uvicorn", "api:app", "--host", "", "--port", "3002", "--proxy-headers"]
