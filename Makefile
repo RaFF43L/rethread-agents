@@ -1,4 +1,4 @@
-.PHONY: api cli migrate seed db db-down docs
+.PHONY: api cli migrate seed db db-down docs test
 
 ## API HTTP (FastAPI) em http://127.0.0.1:8000
 api:
@@ -27,3 +27,7 @@ db-down:
 ## Abre o Swagger UI no navegador
 docs:
 	open http://127.0.0.1:8000/docs
+
+## Testes unitários (sem banco nem LLM)
+test:
+	uv run pytest

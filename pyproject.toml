@@ -25,5 +25,10 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "pytest>=9.1.1",
     "ruff>=0.14.9",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
