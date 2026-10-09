@@ -1,0 +1,29 @@
+[project]
+name = "rethread-agents"
+version = "0.1.0"
+description = "Agentes de atendimento do brechó: triagem + stylist + tamanho/caimento (LangGraph)"
+requires-python = ">=3.13"
+dependencies = [
+    "langchain>=1.0.2",
+    "langgraph>=1.0.0",
+    # Providers de modelos (Claude, OpenAI, Llama via Ollama)
+    "langchain-anthropic>=1.0.0",
+    "langchain-openai>=1.0.0",
+    "langchain-ollama>=1.0.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "python-dotenv>=1.0.1",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    # Catálogo: Postgres + pgvector
+    "psycopg[binary]>=3.2.0",
+    "pgvector>=0.3.0",
+    "sqlalchemy>=2.0.0",
+    # Migrations de banco (schema versionado)
+    "alembic>=1.13.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.9",
+]

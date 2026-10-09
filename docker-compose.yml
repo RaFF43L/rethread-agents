@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: rethread-pgvector
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rethread
+    ports:
+      # Host 5434 -> container 5432 (não conflita com o agent-task-triage em 5433).
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Habilita a extensao vector automaticamente na 1a inicializacao do banco.
+      - ./script/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d rethread"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # API FastAPI em http://localhost:8000 (Swagger em /docs).
+  # Código montado do host + --reload: editar o src/ reinicia a API sozinho.
+  api:
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+    container_name: rethread-api
+    working_dir: /app
+    env_file: .env
+    environment:
+      # Dentro da rede do compose o Postgres é `postgres:5432`, não localhost:5434.
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/rethread
+      PYTHONPATH: /app/src
+      UV_PROJECT_ENVIRONMENT: /venv
+      UV_LINK_MODE: copy
+    command: >-
+      sh -c "uv sync --frozen &&
+             uv run --no-sync uvicorn api:app --host 0.0.0.0 --port 8000 --reload --reload-dir src"
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      # venv e cache do uv fora do diretório montado (não sujam o projeto no Windows).
+      - venv:/venv
+      - uvcache:/root/.cache/uv
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  venv:
+  uvcache:

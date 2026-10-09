@@ -1,0 +1,26 @@
+# Secrets: pass them at runtime (env vars / --env-file), never bake into the image
+.env
+.env.*
+!.env.example
+
+# Local environments and caches
+.venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Not needed in the image
+.git/
+.claude/
+.idea/
+.vscode/
+scripts/
+script/
+docker-compose.yml
+Dockerfile
+.dockerignore
+README.md
+Makefile
+*.log
