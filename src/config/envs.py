@@ -1,6 +1,7 @@
 from typing import Literal
 
 from dotenv import find_dotenv, load_dotenv
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 dotenv_path = find_dotenv(usecwd=True)
@@ -61,6 +62,21 @@ class Settings(BaseSettings):
 
     # catalog / pgvector (psycopg v3 driver)
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5434/rethread"
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg_driver(cls, url: str) -> str:
+        """Hosting platforms hand out `postgres://` / `postgresql://` URLs; SQLAlchemy
+        doesn't know `postgres` and defaults `postgresql` to psycopg2 (not installed)."""
+        return normalize_database_url(url)
+
+
+def normalize_database_url(url: str) -> str:
+    """Forces the psycopg v3 driver on a Postgres URL."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
 
 
 envs = Settings()

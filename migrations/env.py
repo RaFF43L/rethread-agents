@@ -27,9 +27,11 @@ def get_url() -> str:
         raise ValueError(
             "DATABASE_URL environment variable is required to run migrations"
         )
-    # Ensure psycopg v3 driver (same format used by the application).
-    if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    # Ensure psycopg v3 driver (same format used by the application);
+    # platforms hand out `postgres://` or `postgresql://`.
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
     return url
 
 
