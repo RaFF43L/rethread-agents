@@ -19,6 +19,10 @@ build/
 # Logs
 *.log
 
+# Voz: ferramentas locais de teste no navegador (playground, token) e pesos dos modelos
+voice/dev/
+voice/.hf/
+
 # IDE / SO
 .idea/
 .vscode/
