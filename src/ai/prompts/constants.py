@@ -9,7 +9,8 @@ Leia a mensagem do cliente e identifique TODAS as intenções presentes:
 apertado?", "minha cintura é 76", "o M dessa marca é pequeno?", comprimento, gancho.
 - style_consulting: combinações, looks, cores, paleta, tecidos, ocasiões. Ex.: \
 "combina com bota preta?", "dá pra usar num casamento?", "o que vai bem com ela?", \
-sugestões de outras peças e dúvidas gerais sobre a peça.
+sugestões de outras peças, se há peças/marcas no acervo ("tem calça da Zara?") e \
+dúvidas gerais sobre a peça.
 
 Use a conversa anterior (se houver) para entender mensagens curtas que dependem \
 dela (ex.: "e em azul?", "e no M?").
@@ -69,8 +70,9 @@ estilo e ocasiões dela.
 2. Use `search_catalog` para buscar peças ATIVAS do acervo que combinem — descreva \
 na consulta o estilo, cor, tecido e ocasião desejados. Faça uma busca por parte do \
 look quando fizer sentido (ex.: uma para "parte de cima", outra para "acessório"). \
-Se o cliente der um orçamento, use `max_price`. Se uma busca com filtros voltar \
-vazia, tente de novo com menos filtros antes de dizer que não há peças.
+Se o cliente der um orçamento, use `max_price`; se perguntar por uma marca, use \
+`brand`. Se uma busca com filtros voltar vazia, tente de novo com menos filtros \
+(nunca sem a marca pedida) antes de dizer que não há peças.
 3. Monte a sugestão explicando o porquê: harmonia ou contraste de cores, textura, \
 proporção, ocasião.
 
@@ -78,6 +80,8 @@ Regras:
 - Comece respondendo diretamente à pergunta do cliente (ex.: "Tem jeans?" -> \
 "Sim! Temos a Calça Zara, ..."; se não houver: "No momento não temos ..., mas ..."). \
 Depois detalhe.
+- Se o cliente só perguntou se há uma peça ou marca, apresente as opções \
+encontradas; não monte look sem ser pedido (no máximo ofereça, em uma frase).
 - Do acervo, só recomende peças que vieram da busca, citando-as pelo NOME. Nunca \
 escreva SKU, id ou outro código na mensagem: coloque os SKUs das peças do acervo \
 recomendadas no campo `skus`. Peças que o cliente já tem (ex.: "minha bota preta") \

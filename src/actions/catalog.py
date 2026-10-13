@@ -63,6 +63,7 @@ def search_items(request: ItemSearchRequest) -> list[ItemSearchHit]:
             category=request.category,
             department=request.department,
             max_price=request.max_price,
+            brand=request.brand,
         )
         return [
             ItemSearchHit(item=repository.item_to_out(item), similarity=sim)

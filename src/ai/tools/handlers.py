@@ -42,6 +42,7 @@ def search_catalog(
     department: str | None = None,
     exclude_item: str | None = None,
     max_price: float | None = None,
+    brand: str | None = None,
     k: int = 5,
 ) -> str:
     """Semantic search over the ACTIVE (available) pieces of the thrift store.
@@ -56,22 +57,29 @@ def search_catalog(
         exclude_item: optional id/SKU to leave out (the piece being discussed).
         max_price: optional price cap in BRL when the customer gives a budget
             (e.g. "até 30 reais" -> 30).
+        brand: optional brand filter when the customer asks for a brand
+            (e.g. "tem algo da Zara?" -> "Zara"); case, accents and apostrophes
+            don't matter.
         k: how many pieces to return (1-10).
     """
     logger.info(
         f"Tool search_catalog({query!r}, category={category}, "
-        f"department={department}, max_price={max_price})"
+        f"department={department}, max_price={max_price}, brand={brand})"
     )
+    filters = {
+        "k": max(1, min(k, 10)),
+        "category": category,
+        "exclude": exclude_item,
+        "max_price": max_price,
+        "brand": brand,
+    }
     with session_scope() as session:
-        hits = repository.search_items(
-            session,
-            query,
-            k=max(1, min(k, 10)),
-            category=category,
-            department=department,
-            exclude=exclude_item,
-            max_price=max_price,
-        )
+        hits = repository.search_items(session, query, department=department, **filters)
+        if not hits and department:
+            # Models often infer the department from the conversation; an empty
+            # result must not become "não temos". Each piece carries its department.
+            logger.info("search_catalog: nothing with department filter, retrying without it")
+            hits = repository.search_items(session, query, **filters)
         return _json(
             [{**repository.item_to_dict(item), "similarity": sim} for item, sim in hits]
         )

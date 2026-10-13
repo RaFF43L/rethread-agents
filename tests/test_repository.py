@@ -17,6 +17,14 @@ def test_category_key(value, expected):
     assert repository._category_key(value) == expected
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("Zara", "zara"), (" ZARA ", "zara"), ("Levi's", "levis"), ("Hering", "hering"), ("Côté", "cote")],
+)
+def test_brand_key(value, expected):
+    assert repository._brand_key(value) == expected
+
+
 def test_unaccent_tables_have_same_length():
     # str.maketrans raises on mismatch, but this documents the SQL `translate` pairing too
     assert len(repository._ACCENTED) == len(repository._PLAIN)

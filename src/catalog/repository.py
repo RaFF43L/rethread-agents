@@ -36,6 +36,17 @@ def _category_matches(column, value: str):
     return normalized == _category_key(value)
 
 
+def _brand_key(value: str) -> str:
+    """Brand as compared: lowercase, no accents, no apostrophes ("Levi's" -> "levis")."""
+    return value.strip().lower().translate(_UNACCENT).replace("'", "")
+
+
+def _brand_matches(column, value: str):
+    """SQL predicate: the item's brand contains `_brand_key(value)` ("zara" matches "Zara Basic")."""
+    normalized = func.replace(func.translate(func.lower(column), _ACCENTED, _PLAIN), "'", "")
+    return normalized.contains(_brand_key(value), autoescape=True)
+
+
 # Fields that feed the embedding text; changing any of them re-embeds the item.
 EMBED_FIELDS = {
     "title",
@@ -175,6 +186,7 @@ def search_items(
     department: str | None = None,
     exclude: str | None = None,
     max_price: float | None = None,
+    brand: str | None = None,
 ) -> list[tuple[Item, float]]:
     """Cosine-similarity search over ACTIVE items. Returns (item, similarity 0-1)."""
     query_vector = llm_factory.embeddings().embed_query(query)
@@ -194,6 +206,8 @@ def search_items(
         stmt = stmt.where(Item.id != exclude, func.coalesce(Item.sku, "") != exclude)
     if max_price is not None:
         stmt = stmt.where(Item.price <= max_price)
+    if brand:
+        stmt = stmt.where(_brand_matches(Item.brand, brand))
 
     return [(item, round(1 - float(dist), 4)) for item, dist in session.execute(stmt)]
 
