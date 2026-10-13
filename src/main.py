@@ -1,6 +1,7 @@
 import asyncio
 
 from actions import ChatRequest, process_chat
+from config import telemetry
 from config.envs import envs
 from config.logging import setup_logging, get_logger
 
@@ -38,3 +39,4 @@ if __name__ == "__main__":
             print(f"Response  :\n{out.response}")
 
     asyncio.run(run_examples())
+    telemetry.flush()

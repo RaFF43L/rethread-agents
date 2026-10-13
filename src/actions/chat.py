@@ -7,12 +7,14 @@ Exposes two consumption forms:
 
 import asyncio
 import json
+from dataclasses import dataclass
 from typing import Any, AsyncGenerator
 
 from actions.base import ChatRequest, ChatResponse
 from ai.agent import GRAPH_NAME, rethread_agent
 from ai.states import INTENT_ORDER
 from catalog.db import session_scope
+from config import telemetry
 from config.envs import envs
 from config.logging import get_logger
 from sessions import repository as sessions_repository
@@ -70,6 +72,20 @@ def _save_turn(request: ChatRequest, graph_input: dict[str, Any], state: dict[st
         logger.exception(f"Failed to save turn of session {request.session_id}")
 
 
+def _run_config(request: ChatRequest) -> dict[str, Any]:
+    """Graph run config: recursion limit + a Langfuse trace (grouped by session)."""
+    return {
+        "recursion_limit": envs.recursion_limit,
+        "callbacks": telemetry.trace_callbacks(
+            GRAPH_NAME,
+            session_id=request.session_id,
+            tags=[request.channel],
+            metadata={"item_id": request.item_id},
+            input=request.message,
+        ),
+    }
+
+
 def _to_response(state: dict[str, Any], session_id: str | None = None) -> ChatResponse:
     return ChatResponse(
         session_id=session_id,
@@ -86,10 +102,7 @@ async def process_chat(request: ChatRequest) -> ChatResponse:
     """Executes the graph for a message and returns the result."""
     logger.info(f"Processing chat: {request.message[:80]}")
     graph_input = await asyncio.to_thread(_graph_input, request)
-    result = await rethread_agent.ainvoke(
-        graph_input,
-        config={"recursion_limit": envs.recursion_limit},
-    )
+    result = await rethread_agent.ainvoke(graph_input, config=_run_config(request))
     await asyncio.to_thread(_save_turn, request, graph_input, result)
     return _to_response(result, request.session_id)
 
@@ -104,11 +117,101 @@ _REPLAY_CHUNK_SIZE = 6
 _REPLAY_DELAY_S = 0.012
 
 
+# Turns still running after their client disconnected. A reference keeps the
+# task alive (the event loop only holds weak references to tasks).
+_running_turns: set[asyncio.Task] = set()
+
+
+@dataclass(frozen=True)
+class _TurnFinished:
+    state: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class _TurnFailed:
+    detail: str
+
+
+async def _run_turn(request: ChatRequest, events: asyncio.Queue) -> None:
+    """Runs the graph and saves the turn, independently of the client connection.
+
+    Lifecycle events go to `events` as SSE lines, then a _TurnFinished or
+    _TurnFailed. If nobody is reading anymore (the client disconnected), the
+    turn still completes and is saved, so the next message has its memory.
+    """
+    attempts: dict[str, int] = {}
+    current_intent: str | None = None
+    final_state: dict[str, Any] = {}
+
+    try:
+        graph_input = await asyncio.to_thread(_graph_input, request)
+        async for event in rethread_agent.astream_events(
+            graph_input,
+            config=_run_config(request),
+            version="v2",
+        ):
+            kind = event["event"]
+            name = event.get("name", "")
+
+            if kind == "on_chain_end" and name == "triage":
+                out = event["data"].get("output") or {}
+                events.put_nowait(
+                    _sse(
+                        "triage",
+                        {
+                            "intents": out.get("intents"),
+                            "reasoning": out.get("reasoning"),
+                            "ack": out.get("ack", ""),
+                        },
+                    )
+                )
+
+            elif kind == "on_chain_start" and name in INTENT_ORDER:
+                current_intent = name
+                attempts[name] = attempts.get(name, 0) + 1
+                events.put_nowait(_sse("specialist", {"intent": name, "attempt": attempts[name]}))
+
+            elif kind == "on_tool_start":
+                events.put_nowait(
+                    _sse("tool", {"name": name, "input": event["data"].get("input")})
+                )
+
+            elif kind == "on_chain_end" and name == "quality":
+                out = event["data"].get("output") or {}
+                events.put_nowait(
+                    _sse(
+                        "quality",
+                        {
+                            "intent": current_intent,
+                            "approved": out.get("quality_approved", False),
+                            "rejection_reason": out.get("rejection_reason", ""),
+                        },
+                    )
+                )
+
+            elif kind == "on_chain_start" and name == "compose":
+                events.put_nowait(_sse("status", {"phase": "composing"}))
+
+            elif kind == "on_chain_end" and name == GRAPH_NAME:
+                final_state = event["data"].get("output") or {}
+
+        # Saved as soon as the answer exists, before it is replayed to the client.
+        await asyncio.to_thread(_save_turn, request, graph_input, final_state)
+        events.put_nowait(_TurnFinished(final_state))
+
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Error in chat streaming")
+        events.put_nowait(_TurnFailed(str(exc)))
+
+
 async def process_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]:
     """Executes the graph and streams lifecycle events + ONLY the final text.
 
     Specialist drafts can be rejected by the quality node, so they are never
     streamed; the final composed answer is replayed in chunks at the end.
+
+    The graph runs in its own task: a client that disconnects (closed tab,
+    voice interruption) stops the stream, not the turn, which is still saved.
 
     Events emitted:
     - `triage`:     {intents, reasoning, ack} (ack: short waiting phrase)
@@ -122,67 +225,22 @@ async def process_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]
     """
     logger.info(f"Streaming chat: {request.message[:80]}")
 
-    final_state: dict[str, Any] = {}
-    attempts: dict[str, int] = {}
-    current_intent: str | None = None
+    events: asyncio.Queue = asyncio.Queue()
+    turn = asyncio.create_task(_run_turn(request, events))
+    _running_turns.add(turn)
+    turn.add_done_callback(_running_turns.discard)
 
-    try:
-        graph_input = await asyncio.to_thread(_graph_input, request)
-        async for event in rethread_agent.astream_events(
-            graph_input,
-            config={"recursion_limit": envs.recursion_limit},
-            version="v2",
-        ):
-            kind = event["event"]
-            name = event.get("name", "")
-
-            if kind == "on_chain_end" and name == "triage":
-                out = event["data"].get("output") or {}
-                yield _sse(
-                    "triage",
-                    {
-                        "intents": out.get("intents"),
-                        "reasoning": out.get("reasoning"),
-                        "ack": out.get("ack", ""),
-                    },
-                )
-
-            elif kind == "on_chain_start" and name in INTENT_ORDER:
-                current_intent = name
-                attempts[name] = attempts.get(name, 0) + 1
-                yield _sse("specialist", {"intent": name, "attempt": attempts[name]})
-
-            elif kind == "on_tool_start":
-                yield _sse(
-                    "tool",
-                    {"name": name, "input": event["data"].get("input")},
-                )
-
-            elif kind == "on_chain_end" and name == "quality":
-                out = event["data"].get("output") or {}
-                yield _sse(
-                    "quality",
-                    {
-                        "intent": current_intent,
-                        "approved": out.get("quality_approved", False),
-                        "rejection_reason": out.get("rejection_reason", ""),
-                    },
-                )
-
-            elif kind == "on_chain_start" and name == "compose":
-                yield _sse("status", {"phase": "composing"})
-
-            elif kind == "on_chain_end" and name == GRAPH_NAME:
-                final_state = event["data"].get("output") or {}
-
-        final_text = final_state.get("response", "")
-        for i in range(0, len(final_text), _REPLAY_CHUNK_SIZE):
-            yield _sse("token", {"text": final_text[i : i + _REPLAY_CHUNK_SIZE]})
-            await asyncio.sleep(_REPLAY_DELAY_S)
-
-        await asyncio.to_thread(_save_turn, request, graph_input, final_state)
-        yield _sse("done", _to_response(final_state, request.session_id).model_dump())
-
-    except Exception as exc:  # noqa: BLE001
-        logger.exception("Error in chat streaming")
-        yield _sse("error", {"detail": str(exc)})
+    while True:
+        item = await events.get()
+        if isinstance(item, str):
+            yield item
+        elif isinstance(item, _TurnFailed):
+            yield _sse("error", {"detail": item.detail})
+            return
+        else:
+            final_text = item.state.get("response", "")
+            for i in range(0, len(final_text), _REPLAY_CHUNK_SIZE):
+                yield _sse("token", {"text": final_text[i : i + _REPLAY_CHUNK_SIZE]})
+                await asyncio.sleep(_REPLAY_DELAY_S)
+            yield _sse("done", _to_response(item.state, request.session_id).model_dump())
+            return

@@ -18,6 +18,7 @@ from catalog.schemas import (
     SizeEquivalenceIn,
     SizeEquivalenceOut,
 )
+from config import telemetry
 from config.envs import envs
 from config.logging import setup_logging, get_logger
 
@@ -59,6 +60,7 @@ async def lifespan(app: FastAPI):
     _run_migrations()
     yield
     logger.info("Shutting down")
+    telemetry.flush()
 
 
 app = FastAPI(
