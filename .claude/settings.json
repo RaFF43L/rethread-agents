@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(docker compose *)",
-      "Bash(docker network *)"
+      "Bash(docker network *)",
+      "Bash(cd \"C:/Users/Raffael/Documents/projects/rethread-backend/src\" && cat modules/ai/domain/ports/ai-agent.port.ts | head -60; sed -n 1,70p modules/ai/infra/agent/http-ai-agent.adapter.ts; grep -n \"ConfigModule\\\\|validat\\\\|envFilePath\" -A6 app.module.ts | head -30)",
+      "Read(//c/Users/Raffael/Documents/projects/rethread-backend/src/**)"
     ]
   }
 }
