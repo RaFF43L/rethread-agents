@@ -91,6 +91,22 @@ docker compose down
 
 > Use `docker compose down -v` para apagar também os dados do Postgres.
 
+## Agente de voz (LiveKit)
+
+O serviço [`voice/`](voice/) é um agente [LiveKit Agents](https://docs.livekit.io/agents/) que entra na sala, transcreve a fala (STT), chama o mesmo pipeline via `POST /chat/stream` com `channel: "voice"` e fala a resposta aprovada (TTS). A memória é a mesma do chat de texto: o `session_id` vem dos atributos do token LiveKit. Os SKUs recomendados vão para a tela pelo data channel, no tópico `rethread.skus`.
+
+```
+Cliente (áudio) ⇄ LiveKit Server ⇄ voice (STT / turnos / TTS) ──▶ api /chat/stream (channel=voice)
+```
+
+O `docker compose up -d` já sobe o `livekit` (modo dev, credenciais `devkey` / `secret`) e o `voice`. O STT usa a `OPENAI_API_KEY`; o TTS usa a ElevenLabs quando `ELEVENLABS_API_KEY` está preenchida e a OpenAI caso contrário. Em produção é o backend que gera o token, depois de validar o usuário e o dono da sessão.
+
+Com `channel: "voice"`, o pipeline fica mais enxuto (`VOICE_MAX_ATTEMPTS`, `VOICE_FAST_SPECIALISTS`), as respostas saem curtas e faláveis, e a triagem devolve uma frase de espera (`ack`) que o agente fala enquanto busca a resposta.
+
+**Deploy:** o `Dockerfile` gera uma imagem única com a API e o agente de voz, cada um no seu venv. O [`docker-entrypoint.sh`](docker-entrypoint.sh) sobe a API e, **só se `LIVEKIT_URL` estiver definida**, o agente de voz, que chama a API por `127.0.0.1`. Se qualquer um dos processos parar, o container sai com erro e a plataforma reinicia tudo. O servidor LiveKit fica fora da imagem, porque precisa de UDP: em produção, use a LiveKit Cloud (`LIVEKIT_URL=wss://…`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`). `VOICE_IDLE_PROCESSES` (padrão 1) limita quantos processos o agente deixa pré-aquecidos.
+
+**Teste local no navegador:** as ferramentas ficam em `voice/dev/`, fora do git (`make_token.py`, que gera o token, e `playground.html`, que conecta, transcreve e mostra os SKUs).
+
 ## Executando localmente (sem Docker)
 
 ```bash
