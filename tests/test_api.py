@@ -71,6 +71,7 @@ def test_graph_input_without_session_does_not_touch_db(monkeypatch):
         "item_id": "CAL-1",
         "buyer_measurements": {"waist": 80.0},
         "history": [],
+        "channel": "text",
     }
 
 

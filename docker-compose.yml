@@ -46,6 +46,42 @@ services:
       postgres:
         condition: service_healthy
 
+  # Servidor LiveKit (WebRTC) em modo dev: credenciais fixas devkey / secret.
+  # --node-ip 127.0.0.1: o navegador do host conecta a mídia pelas portas publicadas.
+  livekit:
+    image: livekit/livekit-server:v1.13
+    container_name: rethread-livekit
+    command: --dev --bind 0.0.0.0 --node-ip 127.0.0.1
+    ports:
+      - "7880:7880"       # sinalização (ws://localhost:7880)
+      - "7881:7881"       # WebRTC via TCP
+      - "7882:7882/udp"   # WebRTC via UDP
+
+  # Agente de voz (LiveKit Agents): entra em toda sala nova e responde com o
+  # pipeline da `api` (channel=voice). Compartilha a rede do `livekit` porque o
+  # servidor anuncia 127.0.0.1 como endereço de mídia.
+  # Em produção o voice roda no mesmo container da API (Dockerfile → docker-entrypoint.sh);
+  # aqui usa só o estágio `voice` da imagem, para a API seguir com --reload.
+  voice:
+    build:
+      context: .
+      target: voice
+    container_name: rethread-voice
+    env_file: .env
+    environment:
+      # LiveKit Cloud quando LIVEKIT_* estão no .env; senão, o servidor `livekit` local.
+      LIVEKIT_URL: ${LIVEKIT_URL:-ws://127.0.0.1:7880}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secret}
+      RETHREAD_API_URL: http://api:8000
+    volumes:
+      # Ferramentas locais de teste (fora do git): dev/make_token.py, dev/playground.html
+      - ./voice/dev:/app/voice/dev:ro
+    network_mode: "service:livekit"
+    depends_on:
+      - livekit
+      - api
+
 volumes:
   pgdata:
   venv:

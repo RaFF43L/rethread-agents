@@ -1,0 +1,17 @@
+[project]
+name = "rethread-voice"
+version = "0.1.0"
+description = "Agente de voz do Rethread (LiveKit Agents) sobre o pipeline do rethread-agents"
+requires-python = ">=3.13"
+dependencies = [
+    "livekit-agents>=1.8.6,<2",
+    "livekit-plugins-openai>=1.8.6,<2",
+    "livekit-plugins-elevenlabs>=1.8.6,<2",
+    "livekit-plugins-silero>=1.8.6,<2",
+    "livekit-plugins-turn-detector>=1.8.6,<2",
+    "livekit-api>=1.2.1,<2",
+    "httpx>=0.28.0",
+]
+
+[tool.uv]
+package = false

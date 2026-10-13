@@ -18,6 +18,9 @@ Intent = Literal["size_fit", "style_consulting"]
 # stylist can build on the size answer instead of repeating it.
 INTENT_ORDER: tuple[Intent, ...] = ("size_fit", "style_consulting")
 
+# Where the answer will be delivered: written chat or spoken (voice agent, TTS).
+Channel = Literal["text", "voice"]
+
 
 class TriageResult(BaseModel):
     """Structured output of the router."""
@@ -26,6 +29,10 @@ class TriageResult(BaseModel):
         description="Todas as intenções presentes na mensagem (uma ou mais)"
     )
     reasoning: str = Field(description="Justificativa curta da classificação")
+    ack: str = Field(
+        default="",
+        description="Frase curta de espera, em primeira pessoa, ligada ao pedido",
+    )
 
 
 class QualityResult(BaseModel):
@@ -72,10 +79,12 @@ class RethreadState(TypedDict, total=False):
     buyer_measurements: dict[str, float]  # body measurements in cm
     # Previous turns of the session, oldest first: {role, content, skus}
     history: list[dict[str, Any]]
+    channel: Channel  # absent = "text"
 
     # Produced by triage
     intents: list[Intent]
     reasoning: str
+    ack: str  # waiting phrase (voice agent says it while the pipeline runs)
 
     # Dispatcher: queue of specialists still to run + the one running now
     pending: list[Intent]

@@ -4,7 +4,7 @@ import pytest
 from conftest import FakeModel
 
 from ai import agent
-from ai.prompts import COMPOSE_PROMPT, NOT_APPROVED_NOTE
+from ai.prompts import COMPOSE_PROMPT, NOT_APPROVED_NOTE, NOT_APPROVED_NOTE_VOICE
 from ai.states import QualityResult, TriageResult
 
 
@@ -32,6 +32,11 @@ class TestTriage:
         assert out["intents"] == expected
         assert out["pending"] == expected
         assert out["current"] is None
+
+    def test_ack_is_passed_on(self, fake_llm):
+        result = TriageResult(intents=["style_consulting"], reasoning="r", ack="Deixa eu ver se tenho algo da Zara.")
+        fake_llm(fast=FakeModel(result))
+        assert agent.triage_node({"message": "tem calça da Zara?"})["ack"] == "Deixa eu ver se tenho algo da Zara."
 
     def test_item_and_history_reach_the_model(self, fake_llm):
         model = FakeModel(TriageResult(intents=["size_fit"], reasoning="r"))
@@ -144,8 +149,32 @@ class TestCompose:
         )
         assert out["response"] == "Unida" + NOT_APPROVED_NOTE.format(attempts=3)
 
+    def test_voice_channel_joins_without_the_model_and_speaks_the_note(self, fake_llm):
+        fake_llm(fast=None)  # would crash if called
+        out = agent.compose_node(
+            {
+                "message": "x",
+                "channel": "voice",
+                "agent_outputs": {
+                    "style_consulting": _output("Combina.", skus=["B"]),
+                    "size_fit": _output("Serve.", approved=False, attempts=1, skus=["A"]),
+                },
+            }
+        )
+        assert out == {"response": "Serve. Combina." + NOT_APPROVED_NOTE_VOICE, "skus": ["A", "B"]}
+
+
+class TestVoiceRouting:
+    @pytest.mark.parametrize(("channel", "expected"), [("voice", "dispatch"), ("text", "size_fit")])
+    def test_voice_does_not_retry_rejected_answers(self, monkeypatch, channel, expected):
+        monkeypatch.setattr(agent.envs, "max_attempts", 3)
+        monkeypatch.setattr(agent.envs, "voice_max_attempts", 1)
+        state = {"quality_approved": False, "attempts": 1, "current": "size_fit", "channel": channel}
+        assert agent.route_after_quality(state) == expected
+
 
 def test_prompt_templates_format_without_errors():
     # A literal "{" in a prompt would only blow up at runtime
     COMPOSE_PROMPT.format(message="m", sections="s")
     NOT_APPROVED_NOTE.format(attempts=1)
+    NOT_APPROVED_NOTE_VOICE.format(attempts=1)

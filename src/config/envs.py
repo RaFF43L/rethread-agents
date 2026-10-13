@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     # Previous messages of the session fed back to the agent (customer + agent)
     chat_history_messages: int = 10
 
+    # voice channel (channel="voice"): every second of pipeline is silence on the call
+    # Quality loop cap per specialist (1 = no retry; a rejection is noted, not redone)
+    voice_max_attempts: int = 1
+    # Specialists run on the fast model instead of the large one
+    voice_fast_specialists: bool = True
+
     # catalog / pgvector (psycopg v3 driver)
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5434/rethread"
 

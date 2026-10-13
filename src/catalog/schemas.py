@@ -105,6 +105,7 @@ class ItemSearchRequest(BaseModel):
     category: str | None = None
     department: Department | None = None
     max_price: float | None = Field(default=None, ge=0)
+    brand: str | None = Field(default=None, description="Filtro de marca (parcial, sem diferenciar maiúsculas/acentos)")
 
 
 class ItemSearchHit(BaseModel):

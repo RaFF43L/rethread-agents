@@ -4,7 +4,7 @@ import json
 from langchain_core.messages import AIMessage, ToolMessage
 
 from ai import specialists
-from ai.prompts import QUALITY_USER_PROMPT, TRIAGE_SYSTEM_PROMPT
+from ai.prompts import QUALITY_USER_PROMPT, TRIAGE_SYSTEM_PROMPT, VOICE_CHANNEL_NOTE
 from ai.states import SpecialistAnswer
 
 
@@ -64,6 +64,22 @@ class TestBuildInput:
         text = specialists._build_input("size_fit", {"message": "serve?"})
         assert "Motivo:" not in text
 
+    def test_voice_channel_adds_the_voice_note(self):
+        voice = specialists._build_input("size_fit", {"message": "serve?", "channel": "voice"})
+        text = specialists._build_input("size_fit", {"message": "serve?", "channel": "text"})
+        assert VOICE_CHANNEL_NOTE in voice
+        assert VOICE_CHANNEL_NOTE not in text
+
+    def test_voice_channel_uses_the_fast_agent(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(specialists.envs, "voice_fast_specialists", True)
+        monkeypatch.setattr(
+            specialists, "_agent", lambda intent, fast=False: calls.append(fast) or FakeAgent({"messages": [AIMessage(content="ok")]})
+        )
+        asyncio.run(specialists.run_specialist("size_fit", {"message": "serve?", "channel": "voice"}))
+        asyncio.run(specialists.run_specialist("size_fit", {"message": "serve?"}))
+        assert calls == [True, False]
+
 
 class TestCatalogSkus:
     def test_collects_from_catalog_tools_excluding_context_piece(self):
@@ -95,7 +111,7 @@ class FakeAgent:
 
 
 def _run(monkeypatch, result, state=None):
-    monkeypatch.setattr(specialists, "_agent", lambda intent: FakeAgent(result))
+    monkeypatch.setattr(specialists, "_agent", lambda intent, fast=False: FakeAgent(result))
     return asyncio.run(specialists.run_specialist("style_consulting", state or {"message": "oi"}))
 
 

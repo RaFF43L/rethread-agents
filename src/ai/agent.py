@@ -20,6 +20,7 @@ from ai.llm import llm_factory
 from ai.prompts import (
     COMPOSE_PROMPT,
     NOT_APPROVED_NOTE,
+    NOT_APPROVED_NOTE_VOICE,
     QUALITY_SYSTEM_PROMPT,
     QUALITY_USER_PROMPT,
     TRIAGE_SYSTEM_PROMPT,
@@ -70,6 +71,7 @@ def triage_node(state: RethreadState) -> dict:
         "pending": intents,
         "current": None,
         "reasoning": result.reasoning,
+        "ack": result.ack,
         "metadata": {"triage_intents": intents},
     }
 
@@ -158,9 +160,14 @@ def compose_node(state: RethreadState) -> dict:
     """Merges the specialists' answers into a single customer message."""
     outputs = state.get("agent_outputs") or {}
     ordered = [outputs[i] for i in INTENT_ORDER if i in outputs]
+    voice = state.get("channel") == "voice"
 
     if len(ordered) == 1:
         response = ordered[0]["text"]
+    elif voice:
+        # No extra LLM call on the call: the stylist already got the fit answer
+        # and was told to complement it, so the answers can just be spoken in order.
+        response = " ".join(o["text"] for o in ordered)
     else:
         sections = "\n\n".join(
             f"## Resposta de {intent}\n{outputs[intent]['text']}"
@@ -177,9 +184,8 @@ def compose_node(state: RethreadState) -> dict:
 
     not_approved = [o for o in ordered if not o["approved"]]
     if not_approved:
-        response += NOT_APPROVED_NOTE.format(
-            attempts=max(o["attempts"] for o in not_approved)
-        )
+        note = NOT_APPROVED_NOTE_VOICE if voice else NOT_APPROVED_NOTE
+        response += note.format(attempts=max(o["attempts"] for o in not_approved))
 
     return {"response": response, "skus": skus}
 
@@ -200,7 +206,8 @@ def route_after_quality(
     """Approved or attempts exhausted -> dispatch; otherwise retry the same specialist."""
     if state.get("quality_approved"):
         return "dispatch"
-    if state.get("attempts", 0) >= envs.max_attempts:
+    max_attempts = envs.voice_max_attempts if state.get("channel") == "voice" else envs.max_attempts
+    if state.get("attempts", 0) >= max_attempts:
         logger.info("Attempt limit reached. Moving on without approval.")
         return "dispatch"
     logger.info("Rejected. Resending to specialist with rejection_reason.")
