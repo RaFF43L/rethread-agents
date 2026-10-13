@@ -14,6 +14,7 @@ from actions.base import ChatRequest, ChatResponse
 from ai.agent import GRAPH_NAME, rethread_agent
 from ai.states import INTENT_ORDER
 from catalog.db import session_scope
+from config import telemetry
 from config.envs import envs
 from config.logging import get_logger
 from sessions import repository as sessions_repository
@@ -71,6 +72,20 @@ def _save_turn(request: ChatRequest, graph_input: dict[str, Any], state: dict[st
         logger.exception(f"Failed to save turn of session {request.session_id}")
 
 
+def _run_config(request: ChatRequest) -> dict[str, Any]:
+    """Graph run config: recursion limit + a Langfuse trace (grouped by session)."""
+    return {
+        "recursion_limit": envs.recursion_limit,
+        "callbacks": telemetry.trace_callbacks(
+            GRAPH_NAME,
+            session_id=request.session_id,
+            tags=[request.channel],
+            metadata={"item_id": request.item_id},
+            input=request.message,
+        ),
+    }
+
+
 def _to_response(state: dict[str, Any], session_id: str | None = None) -> ChatResponse:
     return ChatResponse(
         session_id=session_id,
@@ -87,10 +102,7 @@ async def process_chat(request: ChatRequest) -> ChatResponse:
     """Executes the graph for a message and returns the result."""
     logger.info(f"Processing chat: {request.message[:80]}")
     graph_input = await asyncio.to_thread(_graph_input, request)
-    result = await rethread_agent.ainvoke(
-        graph_input,
-        config={"recursion_limit": envs.recursion_limit},
-    )
+    result = await rethread_agent.ainvoke(graph_input, config=_run_config(request))
     await asyncio.to_thread(_save_turn, request, graph_input, result)
     return _to_response(result, request.session_id)
 
@@ -135,7 +147,7 @@ async def _run_turn(request: ChatRequest, events: asyncio.Queue) -> None:
         graph_input = await asyncio.to_thread(_graph_input, request)
         async for event in rethread_agent.astream_events(
             graph_input,
-            config={"recursion_limit": envs.recursion_limit},
+            config=_run_config(request),
             version="v2",
         ):
             kind = event["event"]

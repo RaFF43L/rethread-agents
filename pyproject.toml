@@ -21,6 +21,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     # Migrations de banco (schema versionado)
     "alembic>=1.13.0",
+    "langfuse>=2.60,<3",
 ]
 
 [dependency-groups]

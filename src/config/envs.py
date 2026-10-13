@@ -66,6 +66,11 @@ class Settings(BaseSettings):
     # Specialists run on the fast model instead of the large one
     voice_fast_specialists: bool = True
 
+    # telemetry — Langfuse v2 server; disabled while the keys are empty
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_host: str = "http://localhost:3000"
+
     # catalog / pgvector (psycopg v3 driver)
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5434/rethread"
 
