@@ -5,6 +5,10 @@
 
 # Local environments and caches
 .venv/
+voice/.venv/
+voice/.hf/
+# Local browser test tools (not versioned)
+voice/dev/
 __pycache__/
 *.py[cod]
 .ruff_cache/
