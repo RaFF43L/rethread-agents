@@ -21,6 +21,7 @@ from ai.prompts import (
     RETRY_FEEDBACK_TEMPLATE,
     SPECIALIST_INPUT_TEMPLATE,
     STYLIST_AGENT_PROMPT,
+    VOICE_CHANNEL_NOTE,
 )
 from ai.states import Intent, RethreadState, SpecialistAnswer
 from ai.tools import FIT_TOOLS, STYLIST_TOOLS
@@ -46,11 +47,13 @@ _CATALOG_TOOLS = {"search_catalog", "get_item_spec"}
 
 
 @lru_cache(maxsize=None)
-def _agent(intent: Intent):
-    """Builds (once) the agent for an intent. Lazy: no model is created on import."""
+def _agent(intent: Intent, fast: bool = False):
+    """Builds (once) the agent for an intent. Lazy: no model is created on import.
+    `fast` uses the fast model (voice channel, where latency matters most)."""
     system_prompt, tools = SPECIALISTS[intent]
+    model = llm_factory.model_fast if fast else llm_factory.model_large
     return create_agent(
-        llm_factory.model_large(max_tokens=envs.agent_max_tokens),
+        model(max_tokens=envs.agent_max_tokens),
         tools=tools,
         system_prompt=system_prompt,
         response_format=SpecialistAnswer,
@@ -109,6 +112,7 @@ def _build_input(intent: Intent, state: RethreadState) -> str:
         measurements=describe_measurements(state),
         previous=previous,
         feedback=feedback,
+        channel_note=VOICE_CHANNEL_NOTE if state.get("channel") == "voice" else "",
     )
 
 
@@ -139,7 +143,8 @@ async def run_specialist(intent: Intent, state: RethreadState) -> tuple[str, str
     """
     logger.info(f"Running specialist: {intent} (attempt {state.get('attempts', 0) + 1})")
 
-    result = await _agent(intent).ainvoke(
+    fast = state.get("channel") == "voice" and envs.voice_fast_specialists
+    result = await _agent(intent, fast).ainvoke(
         {"messages": [HumanMessage(content=_build_input(intent, state))]}
     )
     messages = result["messages"]

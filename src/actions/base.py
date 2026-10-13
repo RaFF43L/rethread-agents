@@ -2,7 +2,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from ai.states import Intent
+from ai.states import Channel, Intent
 from catalog.schemas import Measurements
 
 
@@ -38,6 +38,13 @@ class ChatRequest(BaseModel):
         description=(
             "Customer's BODY measurements in cm, if known. With a session, they are "
             "merged into the ones already stored"
+        ),
+    )
+    channel: Channel = Field(
+        default="text",
+        description=(
+            "How the answer will be delivered. `voice` makes it short and speakable "
+            "(no lists or markdown) for text-to-speech"
         ),
     )
 

@@ -9,6 +9,8 @@ from ai.prompts.constants import (
     QUALITY_USER_PROMPT,
     COMPOSE_PROMPT,
     NOT_APPROVED_NOTE,
+    NOT_APPROVED_NOTE_VOICE,
+    VOICE_CHANNEL_NOTE,
 )
 
 
@@ -23,4 +25,6 @@ __all__ = [
     "QUALITY_USER_PROMPT",
     "COMPOSE_PROMPT",
     "NOT_APPROVED_NOTE",
+    "NOT_APPROVED_NOTE_VOICE",
+    "VOICE_CHANNEL_NOTE",
 ]

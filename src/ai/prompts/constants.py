@@ -93,7 +93,7 @@ Mensagem atual do cliente: {message}
 
 Peça em contexto: {item}
 Medidas do corpo do cliente (cm): {measurements}
-{previous}{feedback}"""
+{previous}{feedback}{channel_note}"""
 
 
 PREVIOUS_ANSWERS_TEMPLATE = """
@@ -172,3 +172,21 @@ NOT_APPROVED_NOTE = (
     "⚠️ Parte desta resposta não passou na revisão de qualidade após {attempts} "
     "tentativa(s); nossa equipe vai conferir e te retorna."
 )
+# Same note for the voice channel: no markdown/emoji, says no numbers.
+NOT_APPROVED_NOTE_VOICE = (
+    " Só um aviso: parte dessa resposta ainda vai ser conferida pela nossa equipe, "
+    "e a gente te retorna."
+)
+
+
+# ---- Channel ----
+
+# Appended to the specialist input when channel="voice": the answer goes to
+# text-to-speech, so it must sound natural when spoken.
+VOICE_CHANNEL_NOTE = """
+CANAL DE VOZ: esta resposta será FALADA ao cliente (texto para fala).
+- Seja breve: no máximo 3 frases curtas, em tom de conversa.
+- Nada de listas, tópicos, markdown, emojis ou parênteses.
+- Sem abreviações: escreva "centímetros", não "cm".
+- Cite no máximo duas peças do acervo; as demais o cliente vê na tela.
+"""

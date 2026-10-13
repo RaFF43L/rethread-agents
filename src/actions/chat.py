@@ -33,6 +33,7 @@ def _graph_input(request: ChatRequest) -> dict[str, Any]:
             "item_id": request.item_id,
             "buyer_measurements": measurements,
             "history": [],
+            "channel": request.channel,
         }
 
     with session_scope() as session:
@@ -47,6 +48,7 @@ def _graph_input(request: ChatRequest) -> dict[str, Any]:
             "item_id": chat.item_id,
             "buyer_measurements": dict(chat.buyer_measurements or {}),
             "history": [sessions_repository.message_to_dict(m) for m in history],
+            "channel": request.channel,
         }
 
 
