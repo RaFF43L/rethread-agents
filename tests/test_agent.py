@@ -33,6 +33,11 @@ class TestTriage:
         assert out["pending"] == expected
         assert out["current"] is None
 
+    def test_ack_is_passed_on(self, fake_llm):
+        result = TriageResult(intents=["style_consulting"], reasoning="r", ack="Deixa eu ver se tenho algo da Zara.")
+        fake_llm(fast=FakeModel(result))
+        assert agent.triage_node({"message": "tem calça da Zara?"})["ack"] == "Deixa eu ver se tenho algo da Zara."
+
     def test_item_and_history_reach_the_model(self, fake_llm):
         model = FakeModel(TriageResult(intents=["size_fit"], reasoning="r"))
         fake_llm(fast=model)

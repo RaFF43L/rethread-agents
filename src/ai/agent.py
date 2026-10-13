@@ -71,6 +71,7 @@ def triage_node(state: RethreadState) -> dict:
         "pending": intents,
         "current": None,
         "reasoning": result.reasoning,
+        "ack": result.ack,
         "metadata": {"triage_intents": intents},
     }
 

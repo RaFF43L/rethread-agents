@@ -111,7 +111,7 @@ async def process_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]
     streamed; the final composed answer is replayed in chunks at the end.
 
     Events emitted:
-    - `triage`:     {intents, reasoning}
+    - `triage`:     {intents, reasoning, ack} (ack: short waiting phrase)
     - `specialist`: {intent, attempt} when a specialist (re)starts
     - `tool`:       {name, input} when a specialist calls a tool
     - `quality`:    {intent, approved, rejection_reason}
@@ -140,7 +140,11 @@ async def process_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]
                 out = event["data"].get("output") or {}
                 yield _sse(
                     "triage",
-                    {"intents": out.get("intents"), "reasoning": out.get("reasoning")},
+                    {
+                        "intents": out.get("intents"),
+                        "reasoning": out.get("reasoning"),
+                        "ack": out.get("ack", ""),
+                    },
                 )
 
             elif kind == "on_chain_start" and name in INTENT_ORDER:

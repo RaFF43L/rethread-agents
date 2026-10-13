@@ -16,7 +16,13 @@ dela (ex.: "e em azul?", "e no M?").
 Uma mensagem pode ter as duas. Ex.: "adorei essa calça, ela veste 40 e combina \
 com bota preta?" -> ["size_fit", "style_consulting"].
 Se nada se encaixar claramente, use ["style_consulting"].
-Explique o motivo em uma frase curta."""
+Explique o motivo em uma frase curta.
+
+Escreva também `ack`: o que a atendente diz enquanto busca a resposta. Frase \
+curta (até 8 palavras), em primeira pessoa, ligada ao pedido, sem antecipar a \
+resposta. Ex.: "tem calça da Zara?" -> "Deixa eu ver se tenho algo da Zara."; \
+"veste 40?" -> "Vou conferir as medidas dessa peça."; "combina com bota preta?" \
+-> "Deixa eu pensar num look com a bota.\""""
 
 
 # ---- Specialists ----
