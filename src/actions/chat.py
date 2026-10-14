@@ -90,7 +90,6 @@ def _to_response(state: dict[str, Any], session_id: str | None = None) -> ChatRe
     return ChatResponse(
         session_id=session_id,
         intents=state.get("intents", []),
-        reasoning=state.get("reasoning", ""),
         response=state.get("response", ""),
         skus=state.get("skus", []),
         agent_outputs=state.get("agent_outputs", {}),
@@ -160,7 +159,6 @@ async def _run_turn(request: ChatRequest, events: asyncio.Queue) -> None:
                         "triage",
                         {
                             "intents": out.get("intents"),
-                            "reasoning": out.get("reasoning"),
                             "ack": out.get("ack", ""),
                         },
                     )
@@ -214,7 +212,7 @@ async def process_chat_stream(request: ChatRequest) -> AsyncGenerator[str, None]
     voice interruption) stops the stream, not the turn, which is still saved.
 
     Events emitted:
-    - `triage`:     {intents, reasoning, ack} (ack: short waiting phrase)
+    - `triage`:     {intents, ack} (ack: short waiting phrase)
     - `specialist`: {intent, attempt} when a specialist (re)starts
     - `tool`:       {name, input} when a specialist calls a tool
     - `quality`:    {intent, approved, rejection_reason}

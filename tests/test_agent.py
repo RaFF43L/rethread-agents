@@ -1,10 +1,13 @@
-from types import SimpleNamespace
-
 import pytest
 from conftest import FakeModel
 
 from ai import agent
-from ai.prompts import COMPOSE_PROMPT, NOT_APPROVED_NOTE, NOT_APPROVED_NOTE_VOICE
+from ai.prompts import (
+    NOT_APPROVED_NOTE,
+    NOT_APPROVED_NOTE_VOICE,
+    PREVIOUS_ANSWERS_TEMPLATE,
+    RETRY_FEEDBACK_TEMPLATE,
+)
 from ai.states import QualityResult, TriageResult
 
 
@@ -27,19 +30,19 @@ class TestTriage:
         ],
     )
     def test_intents_are_deduped_and_ordered(self, fake_llm, intents, expected):
-        fake_llm(fast=FakeModel(TriageResult(intents=intents, reasoning="r")))
+        fake_llm(fast=FakeModel(TriageResult(intents=intents)))
         out = agent.triage_node({"message": "oi"})
         assert out["intents"] == expected
         assert out["pending"] == expected
         assert out["current"] is None
 
     def test_ack_is_passed_on(self, fake_llm):
-        result = TriageResult(intents=["style_consulting"], reasoning="r", ack="Deixa eu ver se tenho algo da Zara.")
+        result = TriageResult(intents=["style_consulting"], ack="Deixa eu ver se tenho algo da Zara.")
         fake_llm(fast=FakeModel(result))
         assert agent.triage_node({"message": "tem calça da Zara?"})["ack"] == "Deixa eu ver se tenho algo da Zara."
 
     def test_item_and_history_reach_the_model(self, fake_llm):
-        model = FakeModel(TriageResult(intents=["size_fit"], reasoning="r"))
+        model = FakeModel(TriageResult(intents=["size_fit"]))
         fake_llm(fast=model)
         agent.triage_node(
             {"message": "serve?", "item_id": "CAL-1", "history": [{"role": "user", "content": "oi"}]}
@@ -118,9 +121,8 @@ class TestCompose:
         out = agent.compose_node({"message": "oi", "agent_outputs": {"size_fit": _output("Serve!", skus=["A"])}})
         assert out == {"response": "Serve!", "skus": ["A"]}
 
-    def test_multiple_outputs_are_merged_by_the_model(self, fake_llm):
-        model = FakeModel(SimpleNamespace(content=[{"type": "text", "text": "Resposta unida"}]))
-        fake_llm(fast=model)
+    def test_multiple_outputs_are_joined_without_the_model(self, fake_llm):
+        fake_llm(fast=None)  # would crash if called
         out = agent.compose_node(
             {
                 "message": "serve e combina?",
@@ -130,14 +132,11 @@ class TestCompose:
                 },
             }
         )
-        assert out["response"] == "Resposta unida"
-        # fit first, deduped
-        assert out["skus"] == ["A", "B"]
-        prompt = model.calls[0][0].content
-        assert prompt.index("size_fit") < prompt.index("style_consulting")
+        # fit first, SKUs deduped
+        assert out == {"response": "Serve\n\nCombina", "skus": ["A", "B"]}
 
     def test_not_approved_note_uses_max_attempts(self, fake_llm):
-        fake_llm(fast=FakeModel(SimpleNamespace(content="Unida")))
+        fake_llm(fast=None)
         out = agent.compose_node(
             {
                 "message": "x",
@@ -147,7 +146,7 @@ class TestCompose:
                 },
             }
         )
-        assert out["response"] == "Unida" + NOT_APPROVED_NOTE.format(attempts=3)
+        assert out["response"] == "a\n\nb" + NOT_APPROVED_NOTE.format(attempts=3)
 
     def test_voice_channel_joins_without_the_model_and_speaks_the_note(self, fake_llm):
         fake_llm(fast=None)  # would crash if called
@@ -175,6 +174,7 @@ class TestVoiceRouting:
 
 def test_prompt_templates_format_without_errors():
     # A literal "{" in a prompt would only blow up at runtime
-    COMPOSE_PROMPT.format(message="m", sections="s")
+    PREVIOUS_ANSWERS_TEMPLATE.format(answers="a")
+    RETRY_FEEDBACK_TEMPLATE.format(rejection_reason="r")
     NOT_APPROVED_NOTE.format(attempts=1)
     NOT_APPROVED_NOTE_VOICE.format(attempts=1)

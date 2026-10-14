@@ -28,7 +28,6 @@ class TriageResult(BaseModel):
     intents: list[Intent] = Field(
         description="Todas as intenções presentes na mensagem (uma ou mais)"
     )
-    reasoning: str = Field(description="Justificativa curta da classificação")
     ack: str = Field(
         default="",
         description="Frase curta de espera, em primeira pessoa, ligada ao pedido",
@@ -83,7 +82,6 @@ class RethreadState(TypedDict, total=False):
 
     # Produced by triage
     intents: list[Intent]
-    reasoning: str
     ack: str  # waiting phrase (voice agent says it while the pipeline runs)
 
     # Dispatcher: queue of specialists still to run + the one running now

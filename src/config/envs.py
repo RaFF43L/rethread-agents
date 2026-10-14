@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     # llm — provider per role (see .env.example)
     llm_provider: ProviderName = "anthropic"
     model: str = "claude-sonnet-5-5"
-    # Fast model (triage / compose); provider default = llm_provider
+    # Fast model (triage); provider default = llm_provider
     fast_provider: ProviderName | None = None
     model_fast: str = "claude-haiku-5-5"
     # Judge model (quality review); provider default = llm_provider, model default = model

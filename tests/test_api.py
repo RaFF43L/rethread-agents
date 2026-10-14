@@ -38,7 +38,7 @@ def test_chat_validates_body(client):
 
 def test_chat_success(client, monkeypatch):
     async def fake(request):
-        return ChatResponse(intents=["size_fit"], reasoning="r", response="Serve!", skus=["A"])
+        return ChatResponse(intents=["size_fit"], response="Serve!", skus=["A"])
 
     monkeypatch.setattr(api, "process_chat", fake)
     body = client.post("/chat", json={"message": "serve?"}).json()
@@ -114,7 +114,7 @@ class FakeGraph:
         yield {
             "event": "on_chain_end",
             "name": "triage",
-            "data": {"output": {"intents": ["size_fit"], "reasoning": "r", "ack": "Já vejo."}},
+            "data": {"output": {"intents": ["size_fit"], "ack": "Já vejo."}},
         }
         await self.release.wait()
         yield {

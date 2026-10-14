@@ -8,7 +8,8 @@ START → triage → dispatch ─┬─ size_fit ──────────�
 
 A message with several intents ("veste 40 e combina com bota preta?") puts
 both in the `pending` queue; `dispatch` runs them one at a time (fit first) and
-the stylist receives the fit answer as context.
+the stylist receives the fit answer as context and continues it, so `compose`
+just joins the answers.
 """
 
 from typing import Literal
@@ -18,7 +19,6 @@ from langgraph.graph import END, START, StateGraph
 
 from ai.llm import llm_factory
 from ai.prompts import (
-    COMPOSE_PROMPT,
     NOT_APPROVED_NOTE,
     NOT_APPROVED_NOTE_VOICE,
     QUALITY_SYSTEM_PROMPT,
@@ -32,7 +32,7 @@ from ai.specialists import (
     run_specialist,
 )
 from ai.states import INTENT_ORDER, Intent, QualityResult, RethreadState, TriageResult
-from ai.utils import chunk_to_text, sanitize_customer_message
+from ai.utils import sanitize_customer_message
 from config import envs
 from config.logging import get_logger
 
@@ -70,7 +70,6 @@ def triage_node(state: RethreadState) -> dict:
         "intents": intents,
         "pending": intents,
         "current": None,
-        "reasoning": result.reasoning,
         "ack": result.ack,
         "metadata": {"triage_intents": intents},
     }
@@ -157,28 +156,16 @@ def quality_node(state: RethreadState) -> dict:
 
 
 def compose_node(state: RethreadState) -> dict:
-    """Merges the specialists' answers into a single customer message."""
+    """Joins the specialists' answers into a single customer message (no LLM call).
+
+    The specialists run in order (fit first) and each one gets the previous
+    answers and is told to continue them, so a plain join reads as one message.
+    """
     outputs = state.get("agent_outputs") or {}
     ordered = [outputs[i] for i in INTENT_ORDER if i in outputs]
     voice = state.get("channel") == "voice"
 
-    if len(ordered) == 1:
-        response = ordered[0]["text"]
-    elif voice:
-        # No extra LLM call on the call: the stylist already got the fit answer
-        # and was told to complement it, so the answers can just be spoken in order.
-        response = " ".join(o["text"] for o in ordered)
-    else:
-        sections = "\n\n".join(
-            f"## Resposta de {intent}\n{outputs[intent]['text']}"
-            for intent in INTENT_ORDER
-            if intent in outputs
-        )
-        model = llm_factory.model_fast(temperature=0.2)
-        result = model.invoke(
-            [HumanMessage(content=COMPOSE_PROMPT.format(message=state["message"], sections=sections))]
-        )
-        response = sanitize_customer_message(chunk_to_text(result.content))
+    response = (" " if voice else "\n\n").join(o["text"] for o in ordered)
 
     skus = list(dict.fromkeys(sku for o in ordered for sku in o.get("skus", [])))
 

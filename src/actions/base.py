@@ -61,7 +61,6 @@ class ChatResponse(BaseModel):
 
     session_id: str | None = None
     intents: list[Intent]
-    reasoning: str
     response: str
     # SKUs of the catalog pieces recommended in `response`, in order of appearance
     # (excludes the piece in context, `item_id`). The text itself has no SKUs.

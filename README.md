@@ -37,7 +37,7 @@ START → triage → dispatch ─┬─ size_fit ──────────�
 2. **`dispatch`** — executa os especialistas em ordem fixa (caimento antes de estilo), passando a resposta anterior adiante para o próximo complementar em vez de repetir.
 3. **`size_fit` / `style_consulting`** — agentes com tool calling e saída estruturada `{message, skus}`. Os SKUs só são aceitos se vieram das ferramentas.
 4. **`quality`** — o juiz aprova ou reprova com base nas evidências (sem medida, peça ou preço inventado), até `MAX_ATTEMPTS`.
-5. **`compose`** — une as respostas em uma única mensagem.
+5. **`compose`** — junta as respostas em uma única mensagem, sem chamada ao LLM (cada especialista já recebe as respostas anteriores e continua a partir delas).
 
 | Especialista | Foco | Ferramentas |
 |---|---|---|
@@ -124,7 +124,7 @@ Copie `.env.example` para `.env`. Os modelos são definidos **por papel**:
 | Papel | Variáveis | Usado em |
 |---|---|---|
 | large | `LLM_PROVIDER`, `MODEL` | especialistas (precisa de tool calling) |
-| fast | `FAST_PROVIDER`, `MODEL_FAST` | triagem e composição |
+| fast | `FAST_PROVIDER`, `MODEL_FAST` | triagem |
 | judge | `JUDGE_PROVIDER`, `MODEL_JUDGE` | revisão de qualidade |
 | embeddings | `EMBED_PROVIDER`, `EMBED_MODEL`, `EMBED_DIMENSIONS` | busca semântica |
 
